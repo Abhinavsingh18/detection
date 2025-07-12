@@ -3,10 +3,10 @@ flask-cors
 opencv-python-headless
 sounddevice
 soundfile
-fer
+fer==22.4.0
 torch
 git+https://github.com/openai/whisper.git
-moviepy
+moviepy==1.0.3
 imageio
 imageio-ffmpeg
 gunicorn
