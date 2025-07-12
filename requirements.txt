@@ -7,4 +7,6 @@ fer
 torch
 git+https://github.com/openai/whisper.git
 moviepy
+imageio
+imageio-ffmpeg
 gunicorn
