@@ -1,0 +1,97 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Emotion & Language Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #results { margin-top: 20px; }
+        video, canvas { border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>Emotion & Language Detection</h1>
+    <h2>Emotion Detection (Webcam)</h2>
+    <video id="video" width="320" height="240" autoplay></video>
+    <br>
+    <button onclick="capture()">Capture & Detect Emotion</button>
+    <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+    <div id="emotion-result"></div>
+
+    <h2>Language Detection (Microphone)</h2>
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="stopRecording()" disabled id="stopBtn">Stop & Detect Language</button>
+    <div id="language-result"></div>
+
+    <script>
+        // Webcam and mic setup with error handling
+        const video = document.getElementById('video');
+        const emotionResult = document.getElementById('emotion-result');
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => { video.srcObject = stream; window.localStream = stream; })
+            .catch(err => {
+                alert('Camera/mic error: ' + err.message);
+                emotionResult.innerText = 'Camera/mic error: ' + err.message;
+            });
+
+        // Emotion detection
+        const canvas = document.getElementById('canvas');
+        function capture() {
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'snapshot.png');
+                axios.post('/detect_emotion', formData)
+                    .then(res => {
+                        const { emotion, score } = res.data;
+                        emotionResult.innerHTML = emotion
+                            ? `<b>Emotion:</b> ${emotion} <b>Score:</b> ${score !== null ? score.toFixed(2) : 'N/A'}`
+                            : 'No emotion detected.';
+                    })
+                    .catch(() => { emotionResult.innerHTML = 'Error detecting emotion.'; });
+            }, 'image/png');
+        }
+
+        // Audio recording setup
+        let mediaRecorder, audioChunks = [];
+        const languageResult = document.getElementById('language-result');
+        const stopBtn = document.getElementById('stopBtn');
+
+        function startRecording() {
+            languageResult.innerHTML = '';
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob, 'audio.webm');
+                        axios.post('/detect_language', formData)
+                            .then(res => {
+                                const { language, transcript } = res.data;
+                                languageResult.innerHTML = `<b>Language:</b> ${language}<br><b>Transcript:</b> ${transcript}`;
+                            })
+                            .catch(() => { languageResult.innerHTML = 'Error detecting language.'; });
+                    };
+                    stopBtn.disabled = false;
+                })
+                .catch(err => {
+                    alert('Mic error: ' + err.message);
+                    languageResult.innerText = 'Mic error: ' + err.message;
+                });
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                stopBtn.disabled = true;
+            }
+        }
+    </script>
+</body>
+</html>
